@@ -2,18 +2,18 @@
 
 [![NPM Version](https://img.shields.io/npm/v/papers-mcp)](https://www.npmjs.com/package/papers-mcp) [![MIT licensed](https://img.shields.io/npm/l/papers-mcp)](./LICENSE)
 
-## Why Papers MCP?
+## ❌ Without Papers MCP
 
 LLMs struggle with academic papers. You get:
 
-- Hallucinated paper titles and authors that don't exist
-- Inability to access paper content beyond abstracts
-- Garbled math equations and broken formatting from PDFs
-- No way to search for relevant papers by topic
+- ❌ Unable to effectively search across 2M+ arXiv papers
+- ❌ Hallucinated paper titles, authors, and incomplete metadata
+- ❌ Garbled math equations and broken tables from raw PDF parsing
+- ❌ Wasted tokens from crawling full PDFs when you only need specific sections
 
-## With Papers MCP
+## ✅ With Papers MCP
 
-Papers MCP searches arXiv and extracts full paper content as clean Markdown — directly into your LLM's context.
+Papers MCP searches arXiv and extracts paper content as clean Markdown — directly into your LLM's context.
 
 ```txt
 What are the key contributions of the "Attention Is All You Need" paper?
@@ -23,7 +23,10 @@ What are the key contributions of the "Attention Is All You Need" paper?
 Find recent papers on diffusion models for image generation and summarize their methods.
 ```
 
-Papers MCP fetches the actual paper content with properly formatted math equations, figures, tables, and citations. No more hallucinated references or broken PDFs.
+- ✅ Search arXiv with full query syntax (title, author, abstract, category)
+- ✅ Clean Markdown with properly formatted math equations, figures, and tables
+- ✅ Extract only what you need: abstract, body, appendix, or full paper
+- ✅ No more hallucinated references or broken formatting
 
 ## Installation
 
