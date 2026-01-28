@@ -2,14 +2,39 @@
   "name": "papers-mcp",
   "version": "1.0.0",
   "type": "module",
-  "description": "Convert ar5iv papers to Markdown",
-  "main": "ar5iv-to-md.mjs",
+  "description": "MCP server for searching arXiv and extracting academic papers as Markdown",
+  "main": "server.mjs",
   "bin": {
-    "ar5iv-to-md": "./ar5iv-to-md.mjs",
-    "papers-mcp": "./server.mjs"
+    "papers-mcp": "server.mjs"
   },
   "scripts": {
-    "start": "node ar5iv-to-md.mjs"
+    "start": "node server.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "arxiv",
+    "papers",
+    "academic",
+    "markdown",
+    "model-context-protocol"
+  ],
+  "author": "wbopan",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wbopan/papers-mcp.git"
+  },
+  "homepage": "https://github.com/wbopan/papers-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/wbopan/papers-mcp/issues"
+  },
+  "files": [
+    "server.mjs",
+    "ar5iv-to-md.mjs",
+    "arxiv-search.mjs"
+  ],
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
