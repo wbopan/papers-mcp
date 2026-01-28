@@ -6,7 +6,39 @@ const AR5IV_BASE = 'https://ar5iv.labs.arxiv.org/html/';
 const ARXIV_HTML_BASE = 'https://arxiv.org/html/';
 
 /**
- * Fetch ar5iv HTML page, fallback to arxiv.org/html if ar5iv redirects
+ * Fetch arxiv.org/html as fallback
+ */
+async function fetchArxivHtml(arxivId) {
+  const arxivUrl = `${ARXIV_HTML_BASE}${arxivId}`;
+  const arxivResponse = await fetch(arxivUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+    },
+  });
+
+  if (!arxivResponse.ok) {
+    throw new Error(`Paper HTML not available: arxiv.org/html returned ${arxivResponse.status}`);
+  }
+
+  return arxivResponse.text();
+}
+
+/**
+ * Check if ar5iv HTML has valid paper content
+ * Returns false if <article class="ltx_document"> is empty or missing
+ */
+function hasValidContent(html) {
+  const match = html.match(/<article[^>]*class="[^"]*ltx_document[^"]*"[^>]*>([\s\S]*?)<\/article>/i);
+  if (!match) {
+    return false;
+  }
+  // Check if the article content is essentially empty (only whitespace)
+  const content = match[1].trim();
+  return content.length > 0;
+}
+
+/**
+ * Fetch ar5iv HTML page, fallback to arxiv.org/html if ar5iv redirects or has no content
  */
 async function fetchAr5iv(arxivId) {
   // Try ar5iv first (with redirect: 'manual' to detect 307)
@@ -20,26 +52,21 @@ async function fetchAr5iv(arxivId) {
 
   // If ar5iv returns 307, it means the paper is not available on ar5iv
   if (ar5ivResponse.status === 307) {
-    // Fallback to arxiv.org/html
-    const arxivUrl = `${ARXIV_HTML_BASE}${arxivId}`;
-    const arxivResponse = await fetch(arxivUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-      },
-    });
-
-    if (!arxivResponse.ok) {
-      throw new Error(`Paper HTML not available: ar5iv redirected, arxiv.org/html returned ${arxivResponse.status}`);
-    }
-
-    return arxivResponse.text();
+    return fetchArxivHtml(arxivId);
   }
 
   if (!ar5ivResponse.ok) {
     throw new Error(`Failed to fetch ${ar5ivUrl}: ${ar5ivResponse.status}`);
   }
 
-  return ar5ivResponse.text();
+  const html = await ar5ivResponse.text();
+
+  // Check if ar5iv returned valid content (non-empty article)
+  if (!hasValidContent(html)) {
+    return fetchArxivHtml(arxivId);
+  }
+
+  return html;
 }
 
 /**

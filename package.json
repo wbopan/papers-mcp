@@ -1,6 +1,6 @@
 {
   "name": "papers-mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "description": "MCP server for searching arXiv and extracting academic papers as Markdown",
   "main": "server.mjs",
