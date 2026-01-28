@@ -1,0 +1,19 @@
+{
+  "name": "papers-mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Convert ar5iv papers to Markdown",
+  "main": "ar5iv-to-md.mjs",
+  "bin": {
+    "ar5iv-to-md": "./ar5iv-to-md.mjs",
+    "papers-mcp": "./server.mjs"
+  },
+  "scripts": {
+    "start": "node ar5iv-to-md.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "jsdom": "^26.0.0",
+    "zod": "^3.23.0"
+  }
+}
