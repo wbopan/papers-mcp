@@ -4,6 +4,7 @@ import { JSDOM } from 'jsdom';
 
 const AR5IV_BASE = 'https://ar5iv.labs.arxiv.org/html/';
 const ARXIV_HTML_BASE = 'https://arxiv.org/html/';
+const ARXIV_API = 'https://export.arxiv.org/api/query';
 
 /**
  * Fetch arxiv.org/html as fallback
@@ -21,6 +22,35 @@ async function fetchArxivHtml(arxivId) {
   }
 
   return arxivResponse.text();
+}
+
+/**
+ * Fallback: fetch paper metadata from arxiv API when HTML is unavailable
+ */
+async function fetchArxivApi(arxivId) {
+  const params = new URLSearchParams({ id_list: arxivId });
+  const response = await fetch(`${ARXIV_API}?${params}`);
+  if (!response.ok) {
+    throw new Error(`arxiv API request failed: ${response.status}`);
+  }
+
+  const xml = await response.text();
+  const entry = xml.match(/<entry>[\s\S]*?<\/entry>/)?.[0];
+  if (!entry) {
+    throw new Error(`Paper not found: ${arxivId}`);
+  }
+
+  const extractTag = (tag) => {
+    const match = entry.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`));
+    return match?.[1]?.trim() || '';
+  };
+
+  const title = extractTag('title').replace(/\s+/g, ' ');
+  const abstract = extractTag('summary').replace(/\s+/g, ' ');
+  const authors = [...entry.matchAll(/<author>\s*<name>([^<]+)<\/name>\s*<\/author>/g)]
+    .map(m => m[1]);
+
+  return { title, authors, abstract };
 }
 
 /**
@@ -403,10 +433,45 @@ function extractReferences(doc) {
 }
 
 /**
+ * Build markdown from arxiv API metadata (fallback when HTML unavailable)
+ */
+function buildMarkdownFromApi(meta, part) {
+  let md = '';
+
+  if (meta.title) {
+    md += `# ${meta.title}\n\n`;
+  }
+
+  if (meta.authors.length > 0 && part !== 'appendix') {
+    md += `**Authors:** ${meta.authors.join(', ')}\n\n`;
+  }
+
+  if (part === 'abstract' || part === 'body' || part === 'all') {
+    if (meta.abstract) {
+      md += `## Abstract\n\n${meta.abstract}\n`;
+    }
+  }
+
+  if (part === 'body' || part === 'all' || part === 'appendix') {
+    md += `\n> **Note:** Full paper HTML is not available for this paper. Only title, authors, and abstract could be retrieved from the arxiv API.\n`;
+  }
+
+  return md;
+}
+
+/**
  * Main conversion function
  */
 async function convertAr5ivToMarkdown(arxivId, part = 'all') {
-  const html = await fetchAr5iv(arxivId);
+  let html;
+  try {
+    html = await fetchAr5iv(arxivId);
+  } catch (e) {
+    // HTML unavailable — fall back to arxiv API for metadata
+    const meta = await fetchArxivApi(arxivId);
+    return buildMarkdownFromApi(meta, part);
+  }
+
   const dom = new JSDOM(html);
   const doc = dom.window.document;
 
