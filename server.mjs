@@ -20,13 +20,11 @@ const server = new McpServer({
 // Tool 1: resolve-paper-id
 server.tool(
   'resolve-paper-id',
-  `Resolves a paper title, author name, or search query to a arxiv ID and returns matching papers.
-
-You MUST call this function before 'query-paper' to obtain a valid arxiv ID UNLESS the user explicitly includes the arxiv ID in the query.
+  `Resolves a paper title, author name, or search query to an arxiv ID and returns matching papers.
 
 Uses arXiv query syntax (Lucene-style field prefixes) to search. For example \`abs:"attention mechanism" AND submittedDate:[202301010000 TO 202312312359]\` or \`all:2512.16906\`. Prefer \`all:\` to maximize coverage.
 
-IMPORTANT: Do not call this tool more than 3 times per question. If you cannot find what you need after 3 calls, use the best result you have.`,
+Do not call this tool more than 3 times per question. If this tool fails or times out, use Web Search to find the arxiv ID instead.`,
   {
     query: z.string().describe('Paper title, author name, or arXiv search query'),
   },
@@ -51,7 +49,7 @@ server.tool(
   'extract-paper',
   `Retrieves detailed content from a specific academic paper with arxivID.
 
-Call this tool if information returned from \`resolve-paper-id\` is not sufficient and detailed paper content is required. Prefer this tool than fetching webpages or downloading PDFs as it's more accurate and is in markdown format.
+Use this tool when you have an arxiv ID and need the full paper content. Prefer this tool over fetching webpages or downloading PDFs as it's more accurate and returns clean markdown.
 
 This tool can extract paper content in different levels:
 - "abstract": Title, author list and abstract for quick preview
