@@ -2,61 +2,55 @@
 
 /**
  * Papers MCP Server
- * Exposes tools for searching arXiv and retrieving paper content in markdown format
+ * Exposes tools for searching, discovering, and extracting academic papers
  */
 
+import { readFileSync } from 'node:fs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { searchArxiv, formatOutput } from './arxiv-search.mjs';
 import { convertAr5ivToMarkdown } from './ar5iv-to-md.mjs';
+import { searchScholar, formatOutput as formatScholarOutput } from './scholar-search.mjs';
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
 // Create server instance
 const server = new McpServer({
   name: 'papers-mcp',
-  version: '1.0.0',
+  version: pkg.version,
 });
 
-// Tool 1: resolve-paper-id
-server.tool(
-  'resolve-paper-id',
-  `Resolves a paper title, author name, or search query to an arxiv ID and returns matching papers.
-
-Uses arXiv query syntax (Lucene-style field prefixes) to search. For example \`abs:"attention mechanism" AND submittedDate:[202301010000 TO 202312312359]\` or \`all:2512.16906\`. Prefer \`all:\` to maximize coverage.
-
-Do not call this tool more than 3 times per question. If this tool fails or times out, use Web Search to find the arxiv ID instead.`,
-  {
+// Tool 1: resolve-arxiv-id
+server.registerTool('resolve-arxiv-id', {
+  title: 'Resolve Arxiv ID',
+  description: `Resolves a paper title, author name, or search query to an arxiv ID. Supports arXiv Lucene-style query syntax: \`abs:"attention mechanism" AND submittedDate:[202301010000 TO 202312312359]\` or \`all:2512.16906\`. Prefer \`all:\` for broadest coverage.`,
+  inputSchema: {
     query: z.string().describe('Paper title, author name, or arXiv search query'),
   },
-  async ({ query }) => {
-    try {
-      const results = await searchArxiv(query);
-      const output = formatOutput(results);
-      return {
-        content: [{ type: 'text', text: output }],
-      };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error searching arXiv: ${error.message}` }],
-        isError: true,
-      };
-    }
+  annotations: { readOnlyHint: true, openWorldHint: true },
+}, async ({ query }) => {
+  try {
+    const results = await searchArxiv(query);
+    const output = formatOutput(results);
+    return {
+      content: [{ type: 'text', text: output }],
+    };
+  } catch (error) {
+    return {
+      content: [{ type: 'text', text: `Error searching arXiv: ${error.message}. Try search-papers or Web Search to find the arxiv ID instead.` }],
+      isError: true,
+    };
   }
-);
+});
 
 // Tool 2: extract-paper
-server.tool(
-  'extract-paper',
-  `Retrieves detailed content from a specific academic paper with arxivID.
+server.registerTool('extract-paper', {
+  title: 'Extract Paper Content',
+  description: `Extracts academic paper content as clean markdown with math notation preserved.
 
-Use this tool when you have an arxiv ID and need the full paper content. Prefer this tool over fetching webpages or downloading PDFs as it's more accurate and returns clean markdown.
-
-This tool can extract paper content in different levels:
-- "abstract": Title, author list and abstract for quick preview
-- "body": Abstract as well as main body of the paper. Default option for in-depth understanding.
-- "appendix": Appendix section
-- "all": abstract, body, references and appendix. May return a lengthy document.`,
-  {
+Levels: "abstract" (title + authors + abstract), "body" (abstract + main body, default), "appendix" (appendix only), "all" (full paper — may be lengthy).`,
+  inputSchema: {
     arxivId: z.string().describe("arxiv ID (e.g., 'arxiv:1706.03762' or '1706.03762')"),
     level: z
       .enum(['abstract', 'body', 'appendix', 'all'])
@@ -64,23 +58,98 @@ This tool can extract paper content in different levels:
       .default('body')
       .describe('Level of detail to extract'),
   },
-  async ({ arxivId, level }) => {
-    try {
-      // Normalize arxiv ID - strip "arxiv:" prefix if present
-      const normalizedId = arxivId.replace(/^arxiv:/i, '');
-
-      const markdown = await convertAr5ivToMarkdown(normalizedId, level);
-      return {
-        content: [{ type: 'text', text: markdown }],
-      };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error fetching paper: ${error.message}` }],
-        isError: true,
-      };
-    }
+  annotations: { readOnlyHint: true, openWorldHint: true },
+}, async ({ arxivId, level }) => {
+  try {
+    const normalizedId = arxivId.replace(/^arxiv:/i, '');
+    const markdown = await convertAr5ivToMarkdown(normalizedId, level);
+    return {
+      content: [{ type: 'text', text: markdown }],
+    };
+  } catch (error) {
+    return {
+      content: [{ type: 'text', text: `Error fetching paper: ${error.message}` }],
+      isError: true,
+    };
   }
-);
+});
+
+// Tool 3: search-papers
+server.registerTool('search-papers', {
+  title: 'Search Papers',
+  description: `Searches for academic papers by keyword query. Returns results ranked by citation count and relevance, including citation counts, publication venue, year, and arxiv IDs when available.
+
+Each result includes a clusterId (for find-citing-papers) and paperId (for find-related-papers). Returns arxiv IDs when available for use with extract-paper.`,
+  inputSchema: {
+    query: z.string().describe('Search query (paper title, author name, or topic keywords)'),
+    yearLow: z.number().optional().describe('Filter: earliest publication year'),
+    yearHigh: z.number().optional().describe('Filter: latest publication year'),
+    sortByDate: z.boolean().optional().default(false).describe('Sort by date instead of relevance'),
+    start: z.number().optional().describe('Pagination offset (0, 10, 20, …). Each page has 10 results.'),
+  },
+  annotations: { readOnlyHint: true, openWorldHint: true },
+}, async ({ query, yearLow, yearHigh, sortByDate, start }) => {
+  try {
+    const results = await searchScholar({ query, yearLow, yearHigh, sortByDate, start });
+    const output = formatScholarOutput(results);
+    return {
+      content: [{ type: 'text', text: output }],
+    };
+  } catch (error) {
+    return {
+      content: [{ type: 'text', text: `Error searching papers: ${error.message}` }],
+      isError: true,
+    };
+  }
+});
+
+// Tool 4: find-citing-papers
+server.registerTool('find-citing-papers', {
+  title: 'Find Citing Papers',
+  description: `Finds papers that cite a specific paper, given its cluster ID from search-papers results.`,
+  inputSchema: {
+    clusterId: z.string().describe('Cluster ID from search-papers results'),
+    start: z.number().optional().describe('Pagination offset (0, 10, 20, …). Each page has 10 results.'),
+  },
+  annotations: { readOnlyHint: true, openWorldHint: true },
+}, async ({ clusterId, start }) => {
+  try {
+    const results = await searchScholar({ clusterId, start });
+    const output = formatScholarOutput(results);
+    return {
+      content: [{ type: 'text', text: output }],
+    };
+  } catch (error) {
+    return {
+      content: [{ type: 'text', text: `Error finding citing papers: ${error.message}` }],
+      isError: true,
+    };
+  }
+});
+
+// Tool 5: find-related-papers
+server.registerTool('find-related-papers', {
+  title: 'Find Related Papers',
+  description: `Finds papers related to a specific paper by topic similarity, given its paper ID from search-papers results.`,
+  inputSchema: {
+    paperId: z.string().describe('Paper ID from search-papers results'),
+    start: z.number().optional().describe('Pagination offset (0, 10, 20, …). Each page has 10 results.'),
+  },
+  annotations: { readOnlyHint: true, openWorldHint: true },
+}, async ({ paperId, start }) => {
+  try {
+    const results = await searchScholar({ paperId, start });
+    const output = formatScholarOutput(results);
+    return {
+      content: [{ type: 'text', text: output }],
+    };
+  } catch (error) {
+    return {
+      content: [{ type: 'text', text: `Error finding related papers: ${error.message}` }],
+      isError: true,
+    };
+  }
+});
 
 // Start server with stdio transport
 async function main() {

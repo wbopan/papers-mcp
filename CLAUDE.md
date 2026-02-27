@@ -4,7 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Papers MCP is a Model Context Protocol server that searches arXiv and extracts academic papers as clean Markdown. It provides two tools: `resolve-paper-id` (search by title/author/query) and `extract-paper` (content extraction by arxiv ID). The tools can be used independently — if you already have an arxiv ID, call `extract-paper` directly.
+Papers MCP is a Model Context Protocol server for academic paper discovery and extraction. It provides five tools:
+
+- `resolve-paper-id` — search arXiv by title/author/query with Lucene syntax
+- `extract-paper` — extract paper content as clean Markdown by arxiv ID
+- `search-papers` — search papers with citation-ranked results (via Bright Data proxy)
+- `find-citing-papers` — find papers that cite a given paper (by cluster ID)
+- `find-related-papers` — find topically related papers (by paper ID)
+
+The tools can be used independently — if you already have an arxiv ID, call `extract-paper` directly.
 
 ## Important Note
 
@@ -14,22 +22,31 @@ The MCP tools available in your context (`mcp__papers__*`) come from a separate 
 node ar5iv-to-md.mjs <arxiv-id> [part]
 ```
 
+## Environment Variables
+
+- `BRIGHTDATA_API_TOKEN` — Required for `search-papers`, `find-citing-papers`, and `find-related-papers`. Get from Bright Data dashboard.
+
 ## Commands
 
 ```bash
-npm start          # Run MCP server
+npm start          # Run MCP server (stdio)
+npm run start:http # Run MCP server (HTTP, port 18061)
 node ar5iv-to-md.mjs <arxiv-id> [part]  # CLI for paper extraction (part: all|abstract|body|appendix)
+node scholar-search.mjs <query>          # CLI for paper search
+node scholar-search.mjs --cited-by <cluster_id>   # Find citing papers
+node scholar-search.mjs --related <paper_id>       # Find related papers
 ```
 
 No build step required - pure ES modules (.mjs files).
 
 ## Architecture
 
-Three main files, all ES modules:
+Four main files, all ES modules:
 
-- **server.mjs** - MCP server exposing two tools via `@modelcontextprotocol/sdk`
+- **server.mjs** - MCP server exposing five tools via `@modelcontextprotocol/sdk`
 - **arxiv-search.mjs** - arXiv API search with Lucene-style query support
 - **ar5iv-to-md.mjs** - HTML-to-Markdown converter for paper content
+- **scholar-search.mjs** - Paper search via Bright Data proxy (search, cited-by, related)
 
 ### Paper Extraction Flow
 
