@@ -1,32 +1,13 @@
-# Papers MCP - Academic Papers for Any Prompt
+# Papers MCP
 
 [![NPM Version](https://img.shields.io/npm/v/papers-mcp)](https://www.npmjs.com/package/papers-mcp) [![MIT licensed](https://img.shields.io/npm/l/papers-mcp)](./LICENSE)
 
-## ❌ Without Papers MCP
+An MCP server for searching, extracting, and exploring academic papers with citation-aware ranking.
 
-LLMs struggle with academic papers. You get:
-
-- ❌ Unable to effectively search across 2M+ arXiv papers
-- ❌ Hallucinated paper titles, authors, and incomplete metadata
-- ❌ Garbled math equations and broken tables from raw PDF parsing
-- ❌ Wasted tokens from crawling full PDFs when you only need specific sections
-
-## ✅ With Papers MCP
-
-Papers MCP searches arXiv and extracts paper content as clean Markdown — directly into your LLM's context.
-
-```txt
-What are the key contributions of the "Attention Is All You Need" paper?
-```
-
-```txt
-Find recent papers on diffusion models for image generation and summarize their methods.
-```
-
-- ✅ Search arXiv with full query syntax (title, author, abstract, category)
-- ✅ Clean Markdown with properly formatted math equations, figures, and tables
-- ✅ Extract only what you need: abstract, body, appendix, or full paper
-- ✅ No more hallucinated references or broken formatting
+- Search arXiv with Lucene query syntax
+- Extract paper content as clean Markdown with math, figures, and tables
+- Citation-ranked search with venue, year filters, and pagination
+- Citation graph traversal and related paper discovery
 
 ## Installation
 
@@ -36,92 +17,98 @@ Find recent papers on diffusion models for image generation and summarize their 
 claude mcp add papers-mcp -- npx papers-mcp
 ```
 
-### Claude Desktop
+### Claude Desktop / Cursor / Windsurf
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your MCP client config:
 
 ```json
 {
   "mcpServers": {
-    "papers": {
+    "papers-mcp": {
       "command": "npx",
-      "args": ["papers-mcp"]
+      "args": ["-y", "papers-mcp"]
     }
   }
 }
 ```
 
-### Cursor
+Config file locations:
+- Claude Desktop: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Cursor: `~/.cursor/mcp.json`
+- Windsurf: `~/.codeium/windsurf/mcp_config.json`
 
-Add to your Cursor MCP config (`~/.cursor/mcp.json`):
+## Tools
 
-```json
-{
-  "mcpServers": {
-    "papers": {
-      "command": "npx",
-      "args": ["papers-mcp"]
-    }
-  }
-}
-```
+### `resolve-arxiv-id`
 
-## Available Tools
-
-Papers MCP provides two tools following a two-step retrieval pattern:
-
-### `resolve-paper-id`
-
-Resolves a paper title, author name, or search query to arXiv IDs.
+Search arXiv by title, author, or Lucene query to resolve paper IDs.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `query` | string | Yes | Paper title, author name, or arXiv search query |
 
-Supports arXiv query syntax (Lucene-style field prefixes):
-- `all:transformer attention` - Search all fields
-- `ti:"attention is all you need"` - Search by title
-- `au:vaswani` - Search by author
-- `abs:"large language model"` - Search in abstract
-- `cat:cs.CL` - Search by category
+Supports arXiv Lucene-style field prefixes: `ti:`, `au:`, `abs:`, `cat:`, `all:`.
 
 ### `extract-paper`
 
-Retrieves detailed content from a paper using its arXiv ID.
+Extract paper content as clean Markdown with math notation preserved.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `arxivId` | string | Yes | arXiv ID (e.g., `arxiv:1706.03762` or `1706.03762`) |
-| `level` | enum | No | Level of detail to extract (default: `body`) |
+| `arxivId` | string | Yes | arXiv ID (e.g., `1706.03762`) |
+| `level` | enum | No | `abstract`, `body` (default), `appendix`, or `all` |
 
-Extraction levels:
-- `abstract` - Title, authors, and abstract only
-- `body` - Abstract + main body sections (default)
-- `appendix` - Appendix sections only
-- `all` - Full paper including references and appendix
+### `search-papers`
 
-## Features
+Search papers with citation-ranked results, including citation counts, venue, year, and arXiv IDs when available. Requires `BRIGHTDATA_API_TOKEN`.
 
-- **Clean Markdown output** - Properly formatted with headers, lists, and code blocks
-- **Math equation support** - LaTeX equations converted to `$inline$` and `$$block$$` format
-- **Figures and tables** - Preserved with captions and proper formatting
-- **Citations** - Inline citations linked to references
-- **Fallback support** - Tries ar5iv first, falls back to arxiv.org/html
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | Yes | Search query |
+| `yearLow` | number | No | Earliest publication year |
+| `yearHigh` | number | No | Latest publication year |
+| `sortByDate` | boolean | No | Sort by date instead of relevance |
+| `start` | number | No | Pagination offset (0, 10, 20, …) |
 
-## Example Usage
+### `find-citing-papers`
 
-Ask your LLM:
+Find papers that cite a given paper by cluster ID (from `search-papers` results). Requires `BRIGHTDATA_API_TOKEN`.
 
-```txt
-Find the original GPT paper and explain the architecture.
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `clusterId` | string | Yes | Cluster ID from `search-papers` results |
+| `start` | number | No | Pagination offset (0, 10, 20, …) |
+
+### `find-related-papers`
+
+Find topically related papers by paper ID (from `search-papers` results). Requires `BRIGHTDATA_API_TOKEN`.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `paperId` | string | Yes | Paper ID from `search-papers` results |
+| `start` | number | No | Pagination offset (0, 10, 20, …) |
+
+## Environment Variables
+
+| Variable | Required | Used by |
+|----------|----------|---------|
+| `BRIGHTDATA_API_TOKEN` | For citation search tools | `search-papers`, `find-citing-papers`, `find-related-papers` |
+
+To set it in your MCP config, add an `env` block:
+
+```json
+{
+  "mcpServers": {
+    "papers-mcp": {
+      "command": "npx",
+      "args": ["-y", "papers-mcp"],
+      "env": {
+        "BRIGHTDATA_API_TOKEN": "your-token"
+      }
+    }
+  }
+}
 ```
-
-The LLM will:
-1. Call `resolve-paper-id` with query "GPT language model"
-2. Get back matching papers with arXiv IDs
-3. Call `extract-paper` with the relevant arXiv ID
-4. Receive the full paper content in Markdown
-5. Answer your question with accurate information
 
 ## License
 

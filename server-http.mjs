@@ -19,6 +19,8 @@ import { convertAr5ivToMarkdown } from './ar5iv-to-md.mjs';
 import { searchScholar, formatOutput as formatScholarOutput } from './scholar-search.mjs';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
+const landingHTML = readFileSync(new URL('./index.html', import.meta.url), 'utf8')
+  .replace('{{VERSION}}', pkg.version);
 
 const PORT = parseInt(process.env.MCP_PORT || '18061', 10);
 
@@ -166,6 +168,12 @@ Each result includes a clusterId (for find-citing-papers) and paperId (for find-
 
 const app = createMcpExpressApp({
   allowedHosts: ['127.0.0.1', 'localhost', '::1', '170.205.39.135', 'papers.wenbo.io'],
+});
+
+// Landing page
+app.get('/', (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(landingHTML);
 });
 
 // Session store: maps session ID -> transport
